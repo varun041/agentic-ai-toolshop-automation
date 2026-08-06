@@ -1,26 +1,29 @@
 {
   "mcpServers": {
-    "jira": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "@bodywave/jira-mcp"
-      ],
-      "env": {
-        "JIRA_URL": "https://varunoberoi13-1785218517878.atlassian.net/",
-        "JIRA_EMAIL": "varun.oberoi13@gmail.com",
-        "JIRA_API_KEY": "${JIRA_API_KEY}"
-      }
-    },
     "playwright-mcp": {
       "type": "stdio",
       "command": "npx",
-      "args": [
-        "-y",
-        "@dinesh-nalla-se/playwright-mcp"
-      ],
+      "args": ["-y", "@dinesh-nalla-se/playwright-mcp"],
       "env": {
-        "YOUR_API_KEY": ""
+        "YOUR_API_KEY": "${PLAYWRIGHT_API_KEY}"
+      }
+    },
+    "github": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_PERSONAL_ACCESS_TOKEN}"
+      }
+    },
+    "jira": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@bodywave/jira-mcp"],
+      "env": {
+        "JIRA_URL": "${JIRA_URL}",
+        "JIRA_EMAIL": "${JIRA_EMAIL}",
+        "JIRA_API_KEY": "${JIRA_API_KEY}"
       }
     }
   }

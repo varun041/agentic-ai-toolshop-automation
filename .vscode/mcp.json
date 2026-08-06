@@ -8,7 +8,7 @@
         "@dinesh-nalla-se/playwright-mcp"
       ],
       "env": {
-        "YOUR_API_KEY": ""
+        "YOUR_API_KEY": "${env:PLAYWRIGHT_API_KEY}"
       }
     },
    "github": {
@@ -18,7 +18,7 @@
         "@modelcontextprotocol/server-github"
       ],
       "env": {
-        "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_PERSONAL_ACCESS_TOKEN}"
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "${env:GITHUB_PERSONAL_ACCESS_TOKEN}"
       }
     },
    "jira": {
@@ -28,8 +28,8 @@
         "@bodywave/jira-mcp"
       ],
       "env": {
-        "JIRA_URL": "https://varunoberoi13-1785218517878.atlassian.net/",
-        "JIRA_EMAIL": "varun.oberoi13@gmail.com",
+        "JIRA_URL": "${env:JIRA_URL}",
+        "JIRA_EMAIL": "${env:JIRA_EMAIL}",
         "JIRA_API_KEY": "${env:JIRA_API_KEY}"
       }
     }

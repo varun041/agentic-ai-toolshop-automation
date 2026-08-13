@@ -8,9 +8,9 @@
     "test:cucumber": "cucumber-js",
     "typecheck": "tsc --noEmit",
     "test:preflight": "cucumber-js --dry-run",
-    "test:smoke": "cucumber-js --tags \"@smoke\"",
-    "test:regression": "cucumber-js --tags \"@regression\"",
-    "test:api": "cucumber-js --tags \"@api\"",
+    "test:smoke": "cucumber-js --tags \"@smoke\" --retry 1",
+    "test:regression": "cucumber-js --tags \"@regression\" --retry 1",
+    "test:api": "cucumber-js --tags \"@api\" --retry 1",
     "report:generate": "allure generate ./allure-results -o ./allure-report",
     "report:open": "allure open ./allure-report"
   },

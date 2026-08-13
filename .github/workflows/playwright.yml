@@ -29,8 +29,15 @@ jobs:
           node-version: '20'
           cache: npm
 
+      # No `shell:` override — this runner (ICEN667) is a Windows self-hosted
+      # runner and its service process doesn't have bash on PATH even though
+      # the interactive user session does (Windows services run under a
+      # separate environment context). Forcing shell: bash here failed with
+      # "bash: command not found" on 2026-08-13 (run 31701493786). None of
+      # these commands need bash-specific syntax — they're plain npm/npx
+      # invocations — so the default shell (pwsh on Windows, bash on
+      # Linux/macOS if this workflow ever runs there) works fine.
       - name: Install dependencies
-        shell: bash
         run: npm ci
 
       # No actions/cache step here: a self-hosted runner's disk persists
@@ -40,31 +47,26 @@ jobs:
       # present. Only chromium is ever launched (support/hooks.ts) — the
       # multi-browser playwright.config.ts projects are unused scaffold, not
       # part of this Cucumber-driven suite. `--with-deps` only installs OS
-      # packages on Linux; harmless no-op on other platforms.
+      # packages on Linux; harmless no-op on Windows.
       - name: Install Playwright browser (chromium)
-        shell: bash
         run: npx playwright install --with-deps chromium
 
       - name: Smoke run (@smoke)
-        shell: bash
         run: npm run test:smoke
 
       # Runs only if the smoke step above succeeded — GitHub Actions skips a
       # step by default once an earlier step in the job has failed, so no
       # explicit `if:` is needed here to enforce the smoke gate.
       - name: Full regression run (@regression)
-        shell: bash
         run: npm run test:regression
 
       - name: API-only run (@api)
-        shell: bash
         run: npm run test:api
 
       # Runs even if an earlier stage failed, so a failed run still ships a
       # report for diagnosis instead of leaving allure-results unpublished.
       - name: Generate Allure report
         if: always()
-        shell: bash
         run: npm run report:generate
 
       - name: Upload Allure report

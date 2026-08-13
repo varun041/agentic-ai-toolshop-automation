@@ -9,3 +9,9 @@ node_modules/
 /blob-report/
 /playwright/.cache/
 /playwright/.auth/
+
+# Cucumber / Allure
+/allure-results/
+/allure-report/
+summary.txt
+dist/

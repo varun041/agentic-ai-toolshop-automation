@@ -1,0 +1,29 @@
+# Test data for /auth/login — sourced from docs/epics/test_cases_AA-1.md (Stage 4,
+# live-verified 2026-08-11). Wrong-password and non-existent-email cases share the
+# SAME expectedError/expectedStatus below by design — this is the no-user-enumeration
+# assertion (AA-12 AC2). Do not give them different values even if it seems more
+# "realistic" per case; the identical response is the entire point of the test.
+
+negative:
+  invalidCredentials:
+    expectedStatus: 401
+    expectedError: "Invalid email or password"
+  requiredFields:
+    email: "Email is required"
+    password: "Password is required"
+  malformedEmail:
+    email: notanemail
+    expectedError: "Email format is invalid"
+
+# Deliberately-wrong credentials used to trigger negative login flows. These
+# are not real accounts — just fixed values the test suite always submits
+# against a genuine, dynamically-registered email (see TestDataFactory.
+# registerPersona) to produce a reliable 401. Added here (Stage 7b review)
+# after Code Reviewer flagged these as hardcoded literals in
+# tests/step-definitions/aa-1/aa-12.steps.ts instead of sourced from YAML.
+wrongCredentials:
+  password: "WrongPass123!"
+
+placeholderCredentials:
+  email: "placeholder@qa.io"
+  password: "Placeholder1!"

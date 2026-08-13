@@ -1,0 +1,22 @@
+# Test data for /account/profile — sourced from docs/epics/test_cases_AA-1.md
+# (Stage 4, live-verified 2026-08-11). Scope: profile-fields form
+# ([data-test="update-profile-submit"]) only — password-change and 2FA sections
+# are out of scope for AA-1 (see docs/epics/test_plan_AA-1.md §1).
+
+updates:
+  validPhoneChange:
+    phone: "5559998888"
+
+success:
+  profileUpdated:
+    message: "Your profile is successfully updated!"
+
+negative:
+  requiredFieldBlank:
+    expectedError: "Please correct the highlighted fields before saving."
+
+# malformedEmail: intentionally NOT defined here. The email field on
+# /account/profile is read-only in the current app state (confirmed via DOM
+# inspection: el.readOnly === true) — AA-1-TC-05-03 is BLOCKED, not automated.
+# See docs/epics/test_cases_AA-1.md Drift #2 for the two resolution options.
+# Do not add an entry here as a workaround until a PO decision is made.

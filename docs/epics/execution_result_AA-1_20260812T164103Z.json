@@ -1,0 +1,33 @@
+{
+  "epic": "AA-1",
+  "epic_title": "User Authentication & Account Management",
+  "run_timestamp": "2026-08-12T16:41:03Z",
+  "smoke":      { "total": 7, "passed": 7, "failed": 0, "duration_ms": 50178 },
+  "regression": { "total": 33, "passed": 33, "failed": 0, "skipped": 0, "duration_ms": 195072 },
+  "api":        { "total": 2, "passed": 2, "failed": 0 },
+  "pass_rate_percent": 100,
+  "failed_tests": [],
+  "allure_report_path": "./allure-report",
+  "smoke_passed": true,
+  "notes": {
+    "runner": "Cucumber (@cucumber/cucumber) + Playwright, not Playwright Test's own runner — see docs/epics/architecture_AA-1.md as-built notes. Stage 8's template commands (npx playwright test --grep) were adapted to their Cucumber tag-filter equivalents (npm run test:smoke / test:regression / test:api) while preserving the same pre-flight -> smoke gate -> regression -> API -> Allure report sequence.",
+    "healed_this_cycle": [
+      {
+        "test_case_id": "AA-1-TC-04-01",
+        "category": "A",
+        "heal_report": "docs/epics/heal_reports/heal_AA-1-TC-04-01_20260812.md"
+      },
+      {
+        "test_case_id": "AA-1-TC-05-02",
+        "category": "A",
+        "heal_report": "docs/epics/heal_reports/heal_AA-1-TC-05-02_20260812.md"
+      },
+      {
+        "test_case_id": "AA-1-TC-04-05",
+        "category": "D",
+        "heal_report": "docs/epics/heal_reports/heal_AA-1-TC-04-05_20260812.md"
+      }
+    ],
+    "this_result_reflects": "the final clean re-run performed after all 3 heals above; 0 failures, 42/42 scenario instances passed (7 smoke + 33 regression + 2 api)"
+  }
+}

@@ -9,7 +9,16 @@ on:
 jobs:
   test:
     timeout-minutes: 60
-    runs-on: ubuntu-latest
+    # Self-hosted, not ubuntu-latest: practicesoftwaretesting.com sits behind
+    # Cloudflare bot-protection that challenges GitHub-hosted runners' shared
+    # datacenter IPs (confirmed live 2026-08-13 — every scenario hit a
+    # Cloudflare "Performing security verification" interstitial and hung
+    # until timeout; see docs/epics/known_issues_AA-1.md). A self-hosted
+    # runner uses a normal (non-datacenter) IP, matching every local run this
+    # framework has ever passed on. Requires a runner registered under this
+    # repo/org before this workflow can succeed — see GitHub's
+    # Settings → Actions → Runners → New self-hosted runner.
+    runs-on: self-hosted
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -21,42 +30,41 @@ jobs:
           cache: npm
 
       - name: Install dependencies
+        shell: bash
         run: npm ci
 
-      - name: Restore Playwright browser cache
-        id: playwright-cache
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-chromium-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
-
-      # Only chromium is ever launched (support/hooks.ts) — the multi-browser
-      # playwright.config.ts projects are unused scaffold, not part of this
-      # Cucumber-driven suite. Installing only chromium keeps CI fast.
+      # No actions/cache step here: a self-hosted runner's disk persists
+      # between runs natively (unlike ephemeral GitHub-hosted runners), so
+      # Playwright's own browser cache dir survives on its own. `install` is
+      # idempotent — cheap/no-op if the exact chromium version is already
+      # present. Only chromium is ever launched (support/hooks.ts) — the
+      # multi-browser playwright.config.ts projects are unused scaffold, not
+      # part of this Cucumber-driven suite. `--with-deps` only installs OS
+      # packages on Linux; harmless no-op on other platforms.
       - name: Install Playwright browser (chromium)
-        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        shell: bash
         run: npx playwright install --with-deps chromium
 
-      - name: Install Playwright OS dependencies (cache hit)
-        if: steps.playwright-cache.outputs.cache-hit == 'true'
-        run: npx playwright install-deps chromium
-
       - name: Smoke run (@smoke)
+        shell: bash
         run: npm run test:smoke
 
       # Runs only if the smoke step above succeeded — GitHub Actions skips a
       # step by default once an earlier step in the job has failed, so no
       # explicit `if:` is needed here to enforce the smoke gate.
       - name: Full regression run (@regression)
+        shell: bash
         run: npm run test:regression
 
       - name: API-only run (@api)
+        shell: bash
         run: npm run test:api
 
       # Runs even if an earlier stage failed, so a failed run still ships a
       # report for diagnosis instead of leaving allure-results unpublished.
       - name: Generate Allure report
         if: always()
+        shell: bash
         run: npm run report:generate
 
       - name: Upload Allure report

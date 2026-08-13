@@ -1,0 +1,12 @@
+field,message
+First name,First name is required
+Last name,Last name is required
+Date of Birth,Date of Birth is required
+Country,Country is required
+Postal code,Postcode is required
+House number,House number is required
+Street,Street is required
+City,City is required
+State,State is required
+Phone,Phone is required.
+Password,Password is required

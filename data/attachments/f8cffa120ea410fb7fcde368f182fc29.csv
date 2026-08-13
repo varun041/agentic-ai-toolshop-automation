@@ -1,0 +1,6 @@
+password,rule
+Abc123!,Be at least 8 characters long
+alllowercase1!,Contain both uppercase and lowercase letters
+ALLUPPERCASE1!,Contain both uppercase and lowercase letters
+NoNumberAa!,Include at least one number
+NoSpecial1Aa,Have at least one special symbol (e.g., @, #, $, etc.)

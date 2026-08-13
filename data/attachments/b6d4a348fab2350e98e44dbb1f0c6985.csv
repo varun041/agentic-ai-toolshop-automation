@@ -1,0 +1,12 @@
+First name,QA
+Last name,Tester
+Date of Birth,1990-01-01
+Country,United States of America (the)
+Postal code,10001
+House number,42
+Street,Sporer Views
+City,Gianniburgh
+State,New Hampshire
+Phone,5551234567
+Email,{{dynamic:email}}
+Password,Str0ng!Pass9

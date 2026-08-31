@@ -1,27 +1,127 @@
-name: Playwright Tests
+name: Toolshop Agentic Test Automation
 on:
   push:
     branches: [ main, master ]
   pull_request:
     branches: [ main, master ]
+  workflow_dispatch:
+
 jobs:
   test:
     timeout-minutes: 60
-    runs-on: ubuntu-latest
+    permissions:
+      contents: write # needed to push the gh-pages branch (Allure report publish step below)
+    # Self-hosted, not ubuntu-latest: practicesoftwaretesting.com sits behind
+    # Cloudflare bot-protection that challenges GitHub-hosted runners' shared
+    # datacenter IPs (confirmed live 2026-08-13 — every scenario hit a
+    # Cloudflare "Performing security verification" interstitial and hung
+    # until timeout; see docs/epics/known_issues_AA-1.md). A self-hosted
+    # runner uses a normal (non-datacenter) IP, matching every local run this
+    # framework has ever passed on. Requires a runner registered under this
+    # repo/org before this workflow can succeed — see GitHub's
+    # Settings → Actions → Runners → New self-hosted runner.
+    runs-on: self-hosted
     steps:
-    - uses: actions/checkout@v4
-    - uses: actions/setup-node@v4
-      with:
-        node-version: lts/*
-    - name: Install dependencies
-      run: npm ci
-    - name: Install Playwright Browsers
-      run: npx playwright install --with-deps
-    - name: Run Playwright tests
-      run: npx playwright test
-    - uses: actions/upload-artifact@v4
-      if: ${{ !cancelled() }}
-      with:
-        name: playwright-report
-        path: playwright-report/
-        retention-days: 30
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      # No `shell:` override — this runner (ICEN667) is a Windows self-hosted
+      # runner and its service process doesn't have bash on PATH even though
+      # the interactive user session does (Windows services run under a
+      # separate environment context). Forcing shell: bash here failed with
+      # "bash: command not found" on 2026-08-13 (run 31701493786). None of
+      # these commands need bash-specific syntax — they're plain npm/npx
+      # invocations — so the default shell (pwsh on Windows, bash on
+      # Linux/macOS if this workflow ever runs there) works fine.
+      - name: Install dependencies
+        run: npm ci
+
+      # No actions/cache step here: a self-hosted runner's disk persists
+      # between runs natively (unlike ephemeral GitHub-hosted runners), so
+      # Playwright's own browser cache dir survives on its own. `install` is
+      # idempotent — cheap/no-op if the exact chromium version is already
+      # present. Only chromium is ever launched (support/hooks.ts) — the
+      # multi-browser playwright.config.ts projects are unused scaffold, not
+      # part of this Cucumber-driven suite. `--with-deps` only installs OS
+      # packages on Linux; harmless no-op on Windows.
+      - name: Install Playwright browser (chromium)
+        run: npx playwright install --with-deps chromium
+
+      - name: Smoke run (@smoke)
+        run: npm run test:smoke
+
+      # Runs only if the smoke step above succeeded — GitHub Actions skips a
+      # step by default once an earlier step in the job has failed, so no
+      # explicit `if:` is needed here to enforce the smoke gate.
+      - name: Full regression run (@regression)
+        run: npm run test:regression
+
+      - name: API-only run (@api)
+        run: npm run test:api
+
+      # Runs even if an earlier stage failed, so a failed run still ships a
+      # report for diagnosis instead of leaving allure-results unpublished.
+      - name: Generate Allure report
+        if: always()
+        run: npm run report:generate
+
+      - name: Upload Allure report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-report
+          path: allure-report/
+          retention-days: 30
+
+      # Static Allure reports need an HTTP server to view (they fetch() JSON
+      # data files, which browsers block under file://) — publishing to
+      # GitHub Pages gives a permanent URL instead of "download the artifact
+      # and run `npx allure open` locally" every time. Force-pushes a fresh
+      # single-commit gh-pages branch each run (no merge/worktree logic
+      # needed) so the URL always shows the latest run. Plain git/PowerShell
+      # rather than a marketplace action — avoids introducing an
+      # unverified-on-Windows dependency right after this same runner needed
+      # two separate PATH/execution-policy fixes for far simpler commands.
+      # Requires GitHub Pages enabled once: Settings → Pages → source:
+      # gh-pages branch.
+      - name: Publish Allure report to GitHub Pages
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if (-not (Test-Path allure-report)) {
+            Write-Output "No allure-report directory found - skipping Pages publish."
+            exit 0
+          }
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          Remove-Item -Recurse -Force gh-pages-deploy -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Path gh-pages-deploy | Out-Null
+          Copy-Item -Recurse -Force allure-report\* gh-pages-deploy\
+          Push-Location gh-pages-deploy
+          git init -q
+          git checkout -q -b gh-pages
+          git add -A
+          git commit -q -m "Publish Allure report for run $env:GITHUB_RUN_ID"
+          git remote add origin "https://x-access-token:$env:GH_TOKEN@github.com/$env:GITHUB_REPOSITORY.git"
+          git push --force origin gh-pages
+          Pop-Location
+          Remove-Item -Recurse -Force gh-pages-deploy
+
+      # Populated by support/hooks.ts's After hook only on scenario failure
+      # (Playwright trace + full-page screenshot) — see docs/epics/architecture_AA-1.md §5.
+      - name: Upload failure diagnostics (traces & screenshots)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: failure-diagnostics
+          path: |
+            test-results/traces/
+            test-results/screenshots/
+          retention-days: 30

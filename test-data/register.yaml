@@ -1,0 +1,66 @@
+# Test data for /auth/register — sourced from docs/epics/test_cases_AA-1.md (Stage 4,
+# live-verified 2026-08-11) and features/aa-1/aa-1.feature (Stage 5, approved Gherkin).
+# TestDataFactory.ts loads entries from here — do not add static literals to the
+# factory itself; add a new entry here instead (see AgenticPrompts.md Stage 6 §6).
+
+personas:
+  validCustomer:
+    firstName: QA
+    lastName: Tester
+    dob: "1990-01-01"
+    country: United States of America (the)
+    postalCode: "10001"
+    houseNumber: "42"
+    # Street/City/State are filled directly rather than left to the site's
+    # postcode-lookup autofill for this postcode+house number combination —
+    # confirmed live 2026-08-12 that the autofill trigger is timing-fragile
+    # under automation (see support/ToolshopUi.ts fillRegistrationForm). These
+    # values are what that lookup deterministically returns for 10001/42/US,
+    # confirmed identical across many live registrations this session.
+    street: Sporer Views
+    city: Gianniburgh
+    state: New Hampshire
+    phone: "5551234567"
+    email: "{{dynamic:email}}"       # TestDataFactory injects test_{timestamp}@qa.io
+    password: Str0ng!Pass9
+
+boundary:
+  passwordTooShort:
+    password: "Abc123!"
+    unmetRule: "Be at least 8 characters long"
+  passwordAllLowercase:
+    password: "alllowercase1!"
+    unmetRule: "Contain both uppercase and lowercase letters"
+  passwordAllUppercase:
+    password: "ALLUPPERCASE1!"
+    unmetRule: "Contain both uppercase and lowercase letters"
+  passwordNoNumber:
+    password: "NoNumberAa!"
+    unmetRule: "Include at least one number"
+  passwordNoSpecial:
+    password: "NoSpecial1Aa"
+    unmetRule: "Have at least one special symbol (e.g., @, #, $, etc.)"
+
+negative:
+  malformedEmail:
+    email: notanemail
+    expectedError: "Email format is invalid"
+  breachedPassword:
+    password: "Password123!"
+    expectedStatus: 422
+    expectedError: "The given password has appeared in a data leak. Please choose a different password."
+  duplicateEmail:
+    expectedStatus: 409
+    expectedError: "A customer with this email address already exists."
+  requiredFields:
+    firstName: "First name is required"
+    lastName: "Last name is required"
+    dob: "Date of Birth is required"
+    country: "Country is required"
+    postalCode: "Postcode is required"
+    houseNumber: "House number is required"
+    street: "Street is required"
+    city: "City is required"
+    state: "State is required"
+    phone: "Phone is required."
+    password: "Password is required"

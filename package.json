@@ -3,13 +3,32 @@
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
-  "scripts": {},
+  "scripts": {
+    "test": "playwright test",
+    "test:cucumber": "cucumber-js",
+    "typecheck": "tsc --noEmit",
+    "test:preflight": "cucumber-js --dry-run",
+    "test:smoke": "cucumber-js --tags \"@smoke\" --retry 1",
+    "test:regression": "cucumber-js --tags \"@regression\" --retry 1",
+    "test:api": "cucumber-js --tags \"@api\" --retry 1",
+    "report:generate": "allure generate ./allure-results -o ./allure-report",
+    "report:open": "allure open ./allure-report"
+  },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "devDependencies": {
+    "@cucumber/cucumber": "^11.2.0",
     "@playwright/test": "^1.62.1",
-    "@types/node": "^26.1.2"
+    "@types/js-yaml": "^4.0.9",
+    "@types/node": "^26.1.2",
+    "allure": "^3.14.3",
+    "allure-cucumberjs": "^3.1.1",
+    "allure-js-commons": "^3.10.2",
+    "dotenv": "^17.4.2",
+    "js-yaml": "^4.1.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.7.3"
   }
 }

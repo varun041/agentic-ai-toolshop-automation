@@ -69,7 +69,9 @@ with **AA-1**. AA-1's stories:
 - **Support layer (built out epic by epic):**
   - `ToolshopUi.ts` — POM layer: all page interactions (never raw `page.*` in step defs)
   - `ToolshopApi.ts` — all HTTP calls (never raw `fetch`/`axios` in step defs)
-  - `TestDataFactory.ts` — all test data (never hardcoded emails/names/addresses)
+  - `TestDataFactory.ts` — loads test data from `test-data/{page}.yaml` (one YAML
+    file per page) and layers on dynamic values (e.g. timestamped emails); never
+    hardcoded emails/names/addresses, and never a static literal in the factory itself
   - `ToolshopWorld` — typed shared context across Cucumber steps
 
 The repo currently ships as a bare Playwright/TypeScript scaffold
@@ -176,8 +178,8 @@ Each stage's output file is the next stage's input:
 | 3 | Test Scenario Agent | Stage 1 + approved Stage 2 | `test_scenarios_{EPIC_KEY}.md` (positive/negative/boundary/cross-layer scenarios per story) | — |
 | 4 🔴 | Test Case Agent | Stage 3 output | `test_cases_{EPIC_KEY}.md` — full **Gherkin** Given/When/Then per scenario | — |
 | 5 | Automation Test Plan Agent | Approved Stage 4 | `automation_plan_{EPIC_KEY}.md` (automate now/later/manual, tagging, agent owners) + `features/{epic}/*.feature` | — |
-| 6 | Automation Design Architecture Agent | Stage 5 output | `architecture_{EPIC_KEY}.md` — **POM** method design, API client design, fixtures, selector registry | — |
-| 7 | Test Generator Agent | Stage 6 + one `.feature` file (repeats per Jira story) | `*.steps.ts` + `ToolshopUi`/`ToolshopApi`/`TestDataFactory` diffs | — |
+| 6 | Automation Design Architecture Agent | Stage 5 output | `architecture_{EPIC_KEY}.md` — **POM** method design, API client design, fixtures, selector registry, `test-data/{page}.yaml` | — |
+| 7 | Test Generator Agent | Stage 6 + one `.feature` file (repeats per Jira story) | `*.steps.ts` + `ToolshopUi`/`ToolshopApi`/`TestDataFactory`/`test-data/{page}.yaml` diffs | — |
 | 7b | Code Reviewer Agent | All Stage 7 output | `code_review_{EPIC_KEY}.md` — **APPROVED** or **CHANGES REQUESTED** (blocks Stage 8 until clean) | — |
 | 8 | Execution Agent | All generated specs | Runs smoke → regression → API-only, generates the **Allure** report, `execution_result_{EPIC_KEY}_{ts}.json` | **Playwright** |
 | 9 | Test Healer Agent | Any failure from Stage 8 | Diagnoses + patches (or files a Jira bug) — see [Self-Healing Tests](#self-healing-tests); loops back to Stage 8 | **Playwright**, **Jira** |

@@ -512,53 +512,79 @@ AGENT OWNER — assign the primary responsible agent from the roster below:
 SECTION B — GHERKIN FEATURE FILE STRUCTURE
 ================================================================================
 
-All "AUTOMATE NOW" test cases must be written as Gherkin scenarios in .feature files.
-Each .feature file maps to one Jira Story. The Playwright spec file implements the
-step definitions. This is the MANDATORY file structure for this epic:
+All "AUTOMATE NOW" test cases must be written as Gherkin scenarios in ONE .feature file
+per epic — NOT one per Jira Story. All of the epic's stories share a single `Feature:`
+block, sectioned by story with comment dividers, distinguished by tags. The Playwright
+spec file implements the step definitions. This is the MANDATORY file structure for
+this epic:
 
 FOLDER LAYOUT:
   features/
     {epic-folder}/                        ← one folder per epic
-      {story-id}-{short-name}.feature    ← one .feature file per Jira story
+      {epic-key-lower}.feature           ← ONE .feature file for the WHOLE epic —
+                                            every story's scenarios live here, grouped
+                                            into comment-delimited sections, each
+                                            scenario tagged @{story-id-lower}
   tests/
     step-definitions/
       {epic-folder}/
-        {story-id}.steps.ts              ← Playwright step implementations
+        {story-id}.steps.ts              ← Playwright step implementations — still
+                                            split per story for file-size sanity, even
+                                            though the source .feature is epic-scoped
     ui/{epic-folder}/                    ← UI-layer spec files (if not using cucumber runner)
     api/{epic-folder}/                   ← API spec files
     cross-layer/                         ← cross-layer specs
 
 FEATURE FILE RULES — MANDATORY:
-1. Feature tag at top:  @{EPIC_KEY_LOWER} @{story-id-lower}
-2. Scenario tag line:   @{tag1} @{tag2} (from tagging map below)
+1. ONE Feature: block per epic file. Feature-level tag: @{EPIC_KEY_LOWER} only —
+   Gherkin permits exactly one Feature: per file, so per-story tags move to the
+   scenario tag line instead (see rule 2).
+2. Scenario tag line:   @{story-id-lower} @{tag1} @{tag2} (story tag + tagging map below)
 3. Scenario ID in title: include TC ID in the scenario name
-4. Background block for shared preconditions (e.g. user is logged in)
+4. ONLY ONE Background: block is allowed (it applies to every scenario in the file,
+   across all stories) — keep it to what's universally true for the whole epic (e.g.
+   base URL). Story-specific preconditions (e.g. "user is logged in", "a registered
+   account exists") do NOT belong in Background — inline them as Given steps in each
+   scenario instead, since a story-scoped Background would silently leak into every
+   other story's scenarios too.
 5. One Scenario or Scenario Outline per test case — NEVER combine two test cases
 6. Scenario Outline + Examples table for data-driven cases (negative/boundary)
 7. Use EXACT text from practicesoftwaretesting.com in Then steps
 8. Cross-layer scenarios must have both a UI Then step AND an API Then step
+9. Literal values used here (Examples table rows, error strings, persona fields)
+   are the source of truth Stage 6 externalizes into test-data/{page}.yaml — do
+   not invent throwaway values; every literal should be one you'd be comfortable
+   seeing reused as a named YAML entry
+10. Mark each story's section with a comment divider
+    (`# ==== {STORY_ID} — {STORY_TITLE} ==== `) so a human scanning the file can
+    still navigate it story-by-story despite the single-file structure
 
-FEATURE FILE TEMPLATE:
+FEATURE FILE TEMPLATE (one Feature: block for the whole epic — repeat the
+story-section pattern below once per Jira Story in the same file):
 ```gherkin
-@{EPIC_KEY_LOWER} @{STORY_ID_LOWER}
-Feature: {STORY_TITLE}
-  As a {persona}
-  I want {goal}
-  So that {benefit}
+@{EPIC_KEY_LOWER}
+Feature: {EPIC_KEY} — {EPIC_TITLE}
+  As a {epic-level persona}
+  I want {epic-level goal}
+  So that {epic-level benefit}
 
   Background:
-    Given the user is logged in as a registered customer
-    And the base URL is "https://practicesoftwaretesting.com"
+    Given the base URL is "https://practicesoftwaretesting.com"
 
-  @smoke @critical-path @{TC_ID_LOWER}
+  # ============================================================
+  # {STORY_ID} — {STORY_TITLE}
+  # ============================================================
+
+  @{story-id-lower} @smoke @critical-path @{TC_ID_LOWER}
   Scenario: {TC_ID} — {TEST_CASE_TITLE}
-    Given {precondition from test case}
+    Given {precondition from test case — inline, do not rely on Background for
+      anything story-specific}
     When {action from test case}
     And {next action}
     Then {expected result — exact text from live site}
     And {second assertion}
 
-  @regression @negative @{TC_ID_LOWER}
+  @{story-id-lower} @regression @negative @{TC_ID_LOWER}
   Scenario Outline: {TC_ID} — {NEGATIVE_TITLE} with invalid <field>
     Given {precondition}
     When the user enters "<value>" in the {field} field
@@ -571,18 +597,24 @@ Feature: {STORY_TITLE}
       | quantity | 0             | Quantity must be at least 1    |
       | coupon   | BADCODE       | Discount coupon cannot be applied |
 
-  @regression @cross-layer @{TC_ID_LOWER}
+  @{story-id-lower} @regression @cross-layer @{TC_ID_LOWER}
   Scenario: {TC_ID} — {CROSS_LAYER_TITLE}
     Given an order is placed via the API with product "{PRODUCT_NAME}"
     When the user navigates to "/account" and opens order history
     Then the order appears in the orders list with status "Processing"
     And the API response for GET "/orders/{id}" returns status 200
     And the response body contains "status": "Processing"
+
+  # ============================================================
+  # {NEXT_STORY_ID} — {NEXT_STORY_TITLE}
+  # ============================================================
+  # ... repeat the same pattern for every remaining story in this epic ...
 ```
 
 STEP DEFINITION MAPPING:
-For each feature file, list the step definition methods the Test Generator Agent
-must implement in the corresponding .steps.ts file:
+Step definitions stay organized per story (tests/step-definitions/{epic-folder}/{story-id}.steps.ts)
+even though the source .feature file is epic-scoped — list, per story, the step
+definition methods the Test Generator Agent must implement in that story's .steps.ts file:
 
 | Gherkin Step | Step Definition Method | ToolshopUi/ToolshopApi Method Called |
 |---|---|---|
@@ -590,10 +622,11 @@ must implement in the corresponding .steps.ts file:
 | When the user adds "{product}" to cart | whenAddsToCart(product) | toolshopUi.addToCart(product) |
 | Then the cart badge shows "{count}" | thenCartBadgeShows(count) | toolshopUi.getCartCount() |
 
-PRODUCE THE ACTUAL FEATURE FILES:
-For every Jira Story in this epic, write the complete .feature file content
-(not just the template — write the actual Gherkin for every AUTOMATE NOW test case).
-Save each to: features/{epic-folder}/{story-id}-{short-name}.feature
+PRODUCE THE ACTUAL FEATURE FILE:
+Write ONE complete .feature file content for the whole epic — every Jira Story's
+AUTOMATE NOW test cases as sections within the single Feature: block (not just the
+template — write the actual Gherkin for every AUTOMATE NOW test case, in every story).
+Save to: features/{epic-folder}/{epic-key-lower}.feature
 
 ================================================================================
 SECTION C — AGENT ROSTER & RESPONSIBILITIES
@@ -646,7 +679,7 @@ Review checklist:
   [ ] Allure annotations present in Before hook
   [ ] Feature file tags match tagging map in Section A
   [ ] Scenario Outlines used for all data-driven cases
-  [ ] No hardcoded test data — TestDataFactory used
+  [ ] No hardcoded test data — TestDataFactory used, backed by test-data/{page}.yaml (not static literals in TestDataFactory.ts itself)
   [ ] Cross-layer scenarios assert both UI and API state
   [ ] storageState fixture used — no login steps in spec body
 Trigger: After Stage 7, before Stage 8
@@ -940,7 +973,8 @@ OUTPUT ARTIFACTS
 
 EPIC FILES (create new — one per epic):
   docs/epics/automation_plan_{EPIC_KEY}.md          ← this full document
-  features/{epic-folder}/*.feature                   ← one .feature per Jira story
+  features/{epic-folder}/{epic-key-lower}.feature    ← ONE .feature file for the
+                                                       whole epic, all stories
                                                        (actual Gherkin, not template)
 
 MASTER FILE (update {EPIC_KEY} row ONLY):
@@ -957,7 +991,7 @@ MASTER FILE (update {EPIC_KEY} row ONLY):
 
 NEXT STAGE: Feed the following to Stage 6:
   - docs/epics/automation_plan_{EPIC_KEY}.md
-  - features/{epic-folder}/*.feature (all feature files generated in Section B)
+  - features/{epic-folder}/{epic-key-lower}.feature (the epic's single feature file from Section B)
 
 ================================================================================
 STAGE 6 — AUTOMATION DESIGN ARCHITECTURE AGENT
@@ -981,6 +1015,7 @@ CONTEXT (attach ALL of the following):
 - Current full content of support/ToolshopApi.ts        (existing methods — do not duplicate)
 - Current full content of fixtures/toolshop.fixtures.ts (existing fixtures — do not duplicate)
 - Current full content of support/factories/TestDataFactory.ts
+- Current full content of test-data/*.yaml (existing per-page data files — do not duplicate keys)
 - Framework: Playwright + TypeScript + Cucumber/Gherkin + Allure
 - AUT UI: https://practicesoftwaretesting.com
 - AUT API: https://api.practicesoftwaretesting.com/api/documentation
@@ -995,7 +1030,8 @@ Mark each file: [NEW] | [MODIFIED — additions only] | [REUSED — no change]
 
   features/
     {epic-folder}/                              [NEW folder]
-      {story-id}-{short-name}.feature          [NEW — one per story, from Stage 5]
+      {epic-key-lower}.feature                 [NEW or MODIFIED — one file for the
+                                                 whole epic, all stories, from Stage 5]
 
   tests/
     step-definitions/
@@ -1015,6 +1051,9 @@ Mark each file: [NEW] | [MODIFIED — additions only] | [REUSED — no change]
     ToolshopApi.ts                                  [MODIFIED — additions only]
     factories/
       TestDataFactory.ts                       [MODIFIED — additions only]
+
+  test-data/
+    {page}.yaml                                [NEW or MODIFIED — one file per page]
 
   fixtures/
     toolshop.fixtures.ts                            [MODIFIED — additions only]
@@ -1143,18 +1182,79 @@ EXAMPLE:
   Reason:             Cart must be pre-populated via API (not UI) for speed
 
 ────────────────────────────────────────────────────────────────────────────────
-6. TEST DATA FACTORY ADDITIONS
+6. TEST DATA STRATEGY — YAML FILES + TestDataFactory
 ────────────────────────────────────────────────────────────────────────────────
+Static, boundary, and expected-error test data lives in ONE YAML file per page
+(matching the ToolshopUi page-object grouping), NOT inline in TestDataFactory.ts.
+TestDataFactory.ts is a thin loader — it reads the relevant test-data/{page}.yaml
+entry and layers only genuinely dynamic values (timestamps, run-unique suffixes)
+on top at runtime. It must NEVER contain a static literal itself.
+
+The YAML values for this epic must mirror what was already approved in Stage 5's
+.feature files exactly — this stage does not invent new test data, it externalizes
+the literals the human already reviewed in the Gherkin into a reusable, editable
+source file.
+
+6a. TEST DATA YAML FILE(S) FOR THIS EPIC
+List ONLY NEW or MODIFIED yaml files for this epic. Do not re-list unrelated pages.
+
+FILE: test-data/{page}.yaml   (one file per page — e.g. test-data/register.yaml,
+                                test-data/login.yaml, test-data/profile.yaml)
+  Schema:
+    personas:
+      {personaName}:
+        {field}: {static value, or a "{{dynamic:*}}" placeholder — e.g. "{{dynamic:email}}"}
+    boundary:
+      {caseName}:
+        {field}: {value}
+    negative:
+      {caseName}:
+        {field}: {value}
+        expectedError: "{exact text from practicesoftwaretesting.com}"
+
+  EXAMPLE — test-data/register.yaml:
+  ```yaml
+  personas:
+    validCustomer:
+      firstName: QA
+      lastName: Tester
+      dob: "1990-01-01"
+      country: United States of America (the)
+      postalCode: "10001"
+      houseNumber: "42"
+      phone: "5551234567"
+      email: "{{dynamic:email}}"     # TestDataFactory injects test_{timestamp}@qa.io
+      password: "Str0ng!Pass9"
+  negative:
+    malformedEmail:
+      email: notanemail
+      expectedError: "Email format is invalid"
+    breachedPassword:
+      password: "Password123!"
+      expectedError: "The given password has appeared in a data leak. Please choose a different password."
+    duplicateEmail:
+      expectedError: "A customer with this email address already exists."
+  ```
+
+  Used by TC IDs:  {list}
+  Used by:         TestDataFactory.{functionName}()
+
+6b. TEST DATA FACTORY ADDITIONS (loader/generator only — no static literals)
 List ONLY NEW factory functions for this epic. Do not re-list existing ones.
+A factory function's job is: load the named entry from test-data/{page}.yaml,
+substitute any "{{dynamic:*}}" placeholder with a generated value, and return
+the typed object. It must never hold a static literal itself — if you find
+yourself typing a literal string/number into TestDataFactory.ts, it belongs in
+the YAML file instead.
 
 For each new function:
 
 FUNCTION: {functionName}
-  Signature:    {functionName}(): {ReturnInterface}
-  Fields:
-    {fieldName}: {faker.js method used}  — example value
-  Created via:  API (preferred) | UI navigation | static (no creation needed)
-  Used by:      {list of step definitions or fixtures}
+  Signature:      {functionName}(entry?: string): {ReturnInterface}
+  Source YAML:    test-data/{page}.yaml → {personas|boundary|negative}.{entryName}
+  Dynamic fields: {field}: "{{dynamic:email}}" → `test_${Date.now()}@qa.io` (or similar)
+  Created via:    API (preferred) | UI navigation | static (no creation needed)
+  Used by:        {list of step definitions or fixtures}
 
 ────────────────────────────────────────────────────────────────────────────────
 7. CROSS-LAYER PATTERN FOR THIS EPIC
@@ -1251,6 +1351,7 @@ Show which agent receives what artifact from this stage:
 | ToolshopUi.ts method list | Test Generator Agent | Stage 7 |
 | ToolshopApi.ts method list | Test Generator Agent | Stage 7 |
 | Fixture design | Test Generator Agent | Stage 7 |
+| test-data/{page}.yaml | Test Generator Agent (via TestDataFactory) | Stage 7 |
 | Selector Registry | Test Healer Agent | Stage 9 (on failure) |
 | Selector Registry | Code Reviewer Agent | After Stage 7 |
 | TypeScript interfaces | Test Generator Agent | Stage 7 |
@@ -1261,17 +1362,18 @@ OUTPUT ARTIFACTS:
   EPIC FILES (create new):
     docs/epics/architecture_{EPIC_KEY}.md         ← this full document
     support/types/{EPIC_KEY}.types.ts             ← TypeScript interfaces
+    test-data/{page}.yaml                         ← one file per page touched this epic (new or modified)
 
   MASTER FILE (update {EPIC_KEY} row ONLY):
     docs/master/architecture_MASTER.md
 
   Master row to update (under ## Architecture Status table):
-  | {EPIC_KEY} | {EPIC_TITLE} | ✅ Designed | ToolshopUi+{n} | ToolshopApi+{n} | Fixtures+{n} | Steps:{n} | {timestamp} |
+  | {EPIC_KEY} | {EPIC_TITLE} | ✅ Designed | ToolshopUi+{n} | ToolshopApi+{n} | Fixtures+{n} | TestData+{n} | Steps:{n} | {timestamp} |
 
 NEXT STAGE: Feed the following to Stage 7 (Test Generator Agent):
   - docs/epics/architecture_{EPIC_KEY}.md
-  - features/{epic-folder}/*.feature (all feature files from Stage 5)
-  - Current ToolshopUi.ts, ToolshopApi.ts, fixtures/toolshop.fixtures.ts
+  - features/{epic-folder}/{epic-key-lower}.feature (the epic's single feature file from Stage 5)
+  - Current ToolshopUi.ts, ToolshopApi.ts, fixtures/toolshop.fixtures.ts, test-data/*.yaml
 
 ================================================================================
 STAGE 7 — TEST GENERATOR AGENT
@@ -1281,29 +1383,35 @@ PROMPT:
 -------
 You are the Test Generator Agent for the Toolshop Agentic Test Automation Framework.
 Your job is to implement ONE Jira Story's test automation at a time — taking the
-approved Gherkin .feature file from Stage 5 and the architecture design from Stage 6,
-and producing the complete Playwright TypeScript step definitions and spec files.
+@{story-id}-tagged scenarios from the epic's shared Gherkin .feature file (Stage 5)
+and the architecture design from Stage 6, and producing the complete Playwright
+TypeScript step definitions and spec files for just that story.
 
 You generate code. The Code Reviewer Agent (Stage 7 post-step) reviews it.
 Do not merge or commit — that is Stage 11.
 
 CONTEXT (attach ALL of the following — do not proceed if any is missing):
-- features/{epic-folder}/{STORY_ID}-{short-name}.feature   (Stage 5 — source of truth)
+- features/{epic-folder}/{epic-key-lower}.feature          (Stage 5 — source of truth;
+  the WHOLE epic's file — filter to the @{story-id-lower}-tagged section for this run)
 - docs/epics/architecture_{EPIC_KEY}.md                    (Stage 6 — methods + selectors)
 - docs/epics/automation_plan_{EPIC_KEY}.md                 (Stage 5 — tagging map)
 - Current full content of support/ToolshopUi.ts
 - Current full content of support/ToolshopApi.ts
 - Current full content of fixtures/toolshop.fixtures.ts
 - Current full content of support/factories/TestDataFactory.ts
+- Current full content of test-data/*.yaml (data files designed in Stage 6)
 - Current full content of support/types/{EPIC_KEY}.types.ts (from Stage 6)
 
 STORY TO IMPLEMENT NOW:
   Story ID:    {STORY_ID}
   Story title: {STORY_TITLE}
-  Feature file: features/{epic-folder}/{STORY_ID}-{short-name}.feature
+  Feature file: features/{epic-folder}/{epic-key-lower}.feature — implement ONLY the
+                scenarios tagged @{story-id-lower} in this run; leave every other
+                story's section untouched
   Step def file to create: tests/step-definitions/{epic-folder}/{STORY_ID}.steps.ts
 
-(Paste the full .feature file content here before sending this prompt)
+(Paste just the @{story-id-lower}-tagged section of the .feature file here before
+sending this prompt — not the whole epic file)
 
 ════════════════════════════════════════════════════════════════════════════════
 CODING RULES — ZERO EXCEPTIONS — Code Reviewer Agent will fail the review if any
@@ -1350,9 +1458,14 @@ RULE 6 — ZERO waitForTimeout()
   Replace with: waitForURL | waitForResponse | waitForLoadState |
                 expect(locator).toBeVisible() | expect(locator).toHaveText()
 
-RULE 7 — TEST DATA (TestDataFactory only)
-  NEVER hardcode: email addresses | names | addresses | phone numbers | passwords
-  ALWAYS use: TestDataFactory.user() | TestDataFactory.address() etc.
+RULE 7 — TEST DATA (TestDataFactory, backed by test-data/{page}.yaml — only)
+  NEVER hardcode: email addresses | names | addresses | phone numbers | passwords |
+                  expected error strings | boundary values
+  ALWAYS use: TestDataFactory.user() | TestDataFactory.address() etc. — these load
+              their values from test-data/{page}.yaml, never from an inline literal
+              in TestDataFactory.ts or the step definition itself.
+  If the value you need isn't in test-data/{page}.yaml yet, add it there first
+  (as a diff, see FILE 4b below), then reference it — do not inline it as a stopgap.
   Store runtime-generated data in: this.testData.{key}
 
 RULE 8 — API CALLS (ToolshopApi only)
@@ -1417,7 +1530,15 @@ FILE 3 — ToolshopApi ADDITIONS (diff only)
 
 FILE 4 — TestDataFactory ADDITIONS (diff only)
   Path: support/factories/TestDataFactory.ts
-  Show: only new factory functions for this story.
+  Show: only new factory functions for this story. Loader/generator code only —
+  zero static literals (see Rule 7).
+
+FILE 4b — test-data/{page}.yaml ADDITIONS (diff only — only if new entries needed
+           beyond what Stage 6 already designed)
+  Path: test-data/{page}.yaml
+  Show: only new persona/boundary/negative entries this story's step defs require.
+  These values must match what's already approved in the .feature file — do not
+  invent new literals here that weren't in the reviewed Gherkin.
 
 FILE 5 — TypeScript Type ADDITIONS (diff only)
   Path: support/types/{EPIC_KEY}.types.ts
@@ -1438,7 +1559,8 @@ Show this checklist with ✅ or ❌ for each item:
 [ ] All step defs call ToolshopUi/ToolshopApi — zero raw page.* calls
 [ ] World interface (ToolshopWorld) used in every step function signature
 [ ] Allure Before hook present with epic/story/severity/description for each TC tag
-[ ] TestDataFactory used — zero hardcoded emails/names/addresses
+[ ] TestDataFactory used — zero hardcoded emails/names/addresses, TestDataFactory
+    itself holds zero static literals (all sourced from test-data/{page}.yaml)
 [ ] Exact error message text from practicesoftwaretesting.com in all Then assertions
 [ ] AAA comments present in every step method body
 [ ] Tags in .feature file scenarios match the Stage 5 tagging map exactly
@@ -1477,6 +1599,7 @@ OUTPUT ARTIFACTS:
     support/ToolshopUi.ts
     support/ToolshopApi.ts
     support/factories/TestDataFactory.ts
+    test-data/{page}.yaml  (if applicable)
     support/types/{EPIC_KEY}.types.ts
     fixtures/toolshop.fixtures.ts  (if applicable)
   MASTER UPDATE:
@@ -1502,6 +1625,7 @@ execution — Stage 8 does NOT start until you post APPROVED.
 CONTEXT (attach ALL of the following):
 - All newly generated step definition files: tests/step-definitions/{epic-folder}/*.steps.ts
 - All modified support files: ToolshopUi.ts | ToolshopApi.ts | TestDataFactory.ts | *.types.ts
+- All modified test-data files: test-data/*.yaml
 - All modified fixture files: fixtures/toolshop.fixtures.ts
 - docs/epics/architecture_{EPIC_KEY}.md       (Stage 6 — design conventions)
 - docs/epics/automation_plan_{EPIC_KEY}.md    (Stage 5 — tagging map, agent assignments)
@@ -1541,10 +1665,13 @@ RULE CHECK 6 — TAGS MATCH AUTOMATION PLAN
   docs/epics/automation_plan_{EPIC_KEY}.md Section D exactly.
   FAIL if: any scenario has tags not in the approved tagging map
 
-RULE CHECK 7 — ZERO HARDCODED TEST DATA
+RULE CHECK 7 — ZERO HARDCODED TEST DATA (TestDataFactory + YAML only)
   grep -r "@qa.io\|@test.com\|password123\|Test@1234\|123 Main St"
   in step definition and spec files
   FAIL if: any hardcoded email/name/address/phone found (TestDataFactory must be used)
+  ALSO check support/factories/TestDataFactory.ts itself for static string/number
+  literals that should instead be entries in test-data/{page}.yaml
+  FAIL if: TestDataFactory.ts contains a static literal instead of a YAML lookup
 
 RULE CHECK 8 — CROSS-LAYER STEPS ASSERT BOTH SURFACES
   Every @cross-layer scenario's Then steps must include:

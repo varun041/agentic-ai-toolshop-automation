@@ -1,0 +1,23 @@
+{
+  "cucumberautocomplete.steps": [
+    "tests/step-definitions/**/*.ts"
+  ],
+  "cucumberautocomplete.syncfeatures": "features/**/*.feature",
+  "cucumberautocomplete.strictGherkinCompletion": true,
+  "cucumberautocomplete.smartSnippets": true,
+  "cucumberautocomplete.stepsInvariants": true,
+  "cucumberautocomplete.customParameters": [
+    { "parameter": "{string}", "value": "\"[^\"]*\"" }
+  ],
+  "cucumberautocomplete.formatConfOverride": {
+    "Feature": 0,
+    "Background": 0,
+    "Scenario": 0,
+    "Step": 1,
+    "DocString": 1,
+    "DataTable": 1,
+    "Outline": 0,
+    "Examples": 1,
+    "example": 2
+  }
+}

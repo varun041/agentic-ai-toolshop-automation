@@ -2,6 +2,10 @@
 # Env vars / secrets
 .env
 
+# Self-hosted GitHub Actions runner install (contains .credentials /
+# .credentials_rsaparams — runner registration secrets, never commit)
+/actions-runner/
+
 # Playwright
 node_modules/
 /test-results/
@@ -9,3 +13,9 @@ node_modules/
 /blob-report/
 /playwright/.cache/
 /playwright/.auth/
+
+# Cucumber / Allure
+/allure-results/
+/allure-report/
+summary.txt
+dist/

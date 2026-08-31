@@ -430,6 +430,192 @@ for a follow-up pass, not silently assumed. Zero XPath.
 
 ---
 
+## Section 10 — Formal Architecture: Runtime Flow and File Usage
+
+### 10.1 Runtime architecture overview
+
+The AA-1 solution is structured as a layered automation architecture in which the scenario runner,
+Playwright browser layer, UI abstraction layer, API abstraction layer, and YAML-driven data layer
+are intentionally separated. This keeps the step definitions readable while isolating app-specific
+interaction logic from test scenario intent.
+
+```mermaid
+flowchart TD
+    A[package.json + playwright.config.ts] --> B[Cucumber bootstrap]
+    B --> C[features/aa-1/aa-1.feature]
+    C --> D[tests/step-definitions/aa-1/*.steps.ts]
+    D --> E[support/world.ts]
+    E --> F[Playwright Browser + BrowserContext + Page]
+    E --> G[ToolshopUi]
+    E --> H[ToolshopApi]
+    E --> I[TestDataFactory]
+    I --> J[test-data/*.yaml]
+    G --> K[UI locators + page interactions]
+    H --> L[HTTP calls: /users/register, /users/login, /users/me]
+    K --> M[Assertions on DOM / redirect / validation banner]
+    L --> N[Assertions on status / body / session state]
+    M --> O[Scenario result]
+    N --> O
+```
+
+### 10.2 Browser invocation and file chain
+
+The start of each scenario follows this exact file chain:
+
+1. `package.json` triggers the Cucumber/Playwright test command.
+2. `playwright.config.ts` configures the runner and test directories.
+3. `cucumber.mjs` (or equivalent Cucumber config) loads the feature files.
+4. `features/aa-1/aa-1.feature` provides the Gherkin scenario.
+5. `tests/step-definitions/aa-1/*.steps.ts` contains the Given/When/Then mappings.
+6. `support/world.ts` creates the custom Cucumber `World` instance.
+7. The `World` stores:
+   - `browser`
+   - `context`
+   - `page`
+   - `toolshopUi`
+   - `toolshopApi`
+   - `testData`
+8. `support/ToolshopUi.ts` handles browser interactions for register/login/logout/profile flows.
+9. `support/ToolshopApi.ts` handles HTTP calls for registration, login, and session validation.
+10. `support/factories/TestDataFactory.ts` loads values from `test-data/*.yaml`.
+11. `support/types/AA-1.types.ts` defines the request/response contracts used by API helpers.
+12. `fixtures/toolshop.fixtures.ts` optionally creates a test-scoped authenticated page.
+
+### 10.3 Step-by-step flow: browser invoke to scenario execution
+
+```mermaid
+flowchart TD
+    A[Start test run] --> B[Load package.json scripts]
+    B --> C[Playwright config initializes runner]
+    C --> D[Cucumber loads feature files]
+    D --> E[Feature scenario starts]
+    E --> F[World created via support/world.ts]
+    F --> G[Browser launched]
+    G --> H[BrowserContext created]
+    H --> I[Page created]
+    I --> J[World stores browser, context, page, toolshopUi, toolshopApi, testData]
+    J --> K[Step definitions execute Given/When/Then]
+    K --> L{Step type}
+    L -->|UI| M[ToolshopUi method]
+    L -->|API| N[ToolshopApi method]
+    M --> O[Playwright page locators + actions]
+    N --> P[HTTP requests + status/body assertions]
+    O --> Q[DOM assertions / redirect checks]
+    P --> Q
+    Q --> R[Scenario result]
+```
+
+### 10.4 Formal UI flow architecture
+
+The UI execution path is the browser-native path used for page navigation, form operations, validation,
+and navigation-state assertions.
+
+```mermaid
+flowchart TD
+    A[Scenario step in aa-10/aa-11/aa-13/aa-14 steps] --> B[this.page from support/world.ts]
+    B --> C[ToolshopUi.navigateTo / login / register / logout / updateProfile]
+    C --> D[Locator strategy using data-test selectors]
+    D --> E[Playwright actions: goto, fill, click, check, waitForURL]
+    E --> F[App renders page state]
+    F --> G{Assertion type}
+    G -->|URL redirect| H[expect(page).toHaveURL(...)]
+    G -->|Visible element| I[expect(locator).toBeVisible()]
+    G -->|Field error| J[ToolshopUi.getFieldError()]
+    G -->|Banner message| K[ToolshopUi.getBannerMessage()]
+    G -->|Profile state| L[ToolshopUi.getProfileFieldValues()]
+    H --> M[UI test result]
+    I --> M
+    J --> M
+    K --> M
+    L --> M
+```
+
+#### Files in the UI path
+
+- `features/aa-1/aa-1.feature`
+- `tests/step-definitions/aa-1/*.steps.ts`
+- `support/world.ts`
+- `support/ToolshopUi.ts`
+- `support/factories/TestDataFactory.ts`
+- `test-data/register.yaml`
+- `test-data/login.yaml`
+- `test-data/profile.yaml`
+
+### 10.5 Formal API flow architecture
+
+The API execution path is used when the test validates the server-side response or a session-state result
+that is not directly visible in the UI. This path is split into two patterns:
+
+- Pattern A: intercept UI-triggered network calls and assert the response status
+- Pattern B: make a direct API call and assert the result
+
+```mermaid
+flowchart TD
+    A[Scenario step in aa-11 / aa-12 / aa-13 / aa-14] --> B[World exposes toolshopApi]
+    B --> C{Flow type}
+    C -->|Intercept UI network call| D[page.waitForResponse() before action]
+    D --> E[ToolshopUi triggers login/register action]
+    E --> F[Browser sends request to /users/login or /users/register]
+    F --> G[Capture response and assert status]
+    G --> H[Cross-layer assertion result]
+    C -->|Direct API call| I[ToolshopApi.registerViaApi / loginViaApi / getMe]
+    I --> J[HTTP POST/GET request to API]
+    J --> K[Response body + status returned]
+    K --> L[Assert session state, 401/200, payload shape]
+    L --> M[API test result]
+    H --> N[Final scenario result]
+    M --> N
+```
+
+#### Files in the API path
+
+- `tests/step-definitions/aa-1/*.steps.ts`
+- `support/world.ts`
+- `support/ToolshopApi.ts`
+- `support/types/AA-1.types.ts`
+- `support/factories/TestDataFactory.ts`
+- `test-data/*.yaml`
+- `features/aa-1/aa-1.feature`
+
+### 10.6 Authenticated fixture architecture
+
+The `authenticatedPage` fixture is a specialized convenience path used when many scenarios require a
+pre-authenticated session. It intentionally creates a test-scoped user and injects the real token into
+browser localStorage instead of relying on a suite-wide shared session.
+
+```mermaid
+flowchart TD
+    A[authenticatedPage fixture requested] --> B[TestDataFactory.registerPersona()]
+    B --> C[ToolshopApi.registerViaApi(persona)]
+    C --> D[ToolshopApi.loginViaApi(email, password)]
+    D --> E[Read auth-token from login response]
+    E --> F[Create new browser context]
+    F --> G[Inject localStorage auth-token for origin https://practicesoftwaretesting.com]
+    G --> H[Create page from that context]
+    H --> I[Return { page, user }]
+    I --> J[Test executes with authenticated page]
+    J --> K[context.close() during teardown]
+```
+
+This design exists because the app authenticates via browser `localStorage` rather than cookies, and the
+architecture explicitly avoids worker/global session reuse due to the documented 300-second token expiry.
+
+### 10.7 Architectural rule set for AA-1
+
+1. The browser is always started via the Playwright runtime and attached to the Cucumber `World`.
+2. UI logic lives in `ToolshopUi` and never directly in step definitions.
+3. API logic lives in `ToolshopApi` and never directly in step definitions when a real HTTP request is
+   required.
+4. Shared runtime state lives in `this.testData` inside the Cucumber `World`.
+5. Test data comes from YAML through `TestDataFactory`, not hard-coded literals in the steps.
+6. Cross-layer assertions must choose between:
+   - intercepted network response, or
+   - direct API call
+   depending on the actual scenario behavior.
+7. Authenticated state is test-scoped to avoid token expiry and shared-demo-store contamination.
+
+---
+
 ## Output Artifacts
 
 - **Epic files (created this stage):** this document, `support/types/AA-1.types.ts`,
